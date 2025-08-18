@@ -1,145 +1,89 @@
-import ffmpeg from 'fluent-ffmpeg';
+// src/index.ts
 import express from "express";
-import multer from "multer";
-import {v2 as cloudinary} from "cloudinary";
-import dotenv from "dotenv";
-import fs from "fs";
+import { PrismaClient } from "../src/generated/prisma/client.js";
 import cors from "cors";
-import axios from 'axios';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { spawn } from 'child_process';
-dotenv.config();
+import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
+import { AccessToken } from "livekit-server-sdk";
 
 const app = express();
-const upload = multer({ dest: "uploads/" });
+const prisma = new PrismaClient();
 
 app.use(express.json());
-app.use(express.urlencoded({extended: true}))
 app.use(cors());
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME as string,
-  api_key: process.env.CLOUDINARY_API_KEY as string,
-  api_secret: process.env.CLOUDINARY_API_SECRET as string
+const JWT_SECRET = process.env.JWT_SECRET ;
+app.post("/signup", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    const existingUser = await prisma.user.findUnique({ where: { email } });
+
+    if (existingUser) {
+      return res.status(400).json({ error: "User already exists" });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const user = await prisma.user.create({
+      data: {
+        email: email,
+        password: hashedPassword,
+      },
+    });
+
+    if(!JWT_SECRET){
+      res.json({"error" : "jsonwebtoken is missing"});
+      return;
+    }
+    const token = jwt.sign({ userId: user.id }, JWT_SECRET);
+    res.json({ token, user: { id: user.id, email: user.email } });
+
+  } catch (err) {
+    res.status(500).json({ error: err });
+  }
 });
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+app.post("/signin", async (req, res) => {
+  try {
+    const { email, password } = req.body;
 
-console.log(__dirname); 
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) return res.status(400).json({ error: "Invalid credentials" });
 
-app.post("/upload_chunk", upload.single("blob"), async(req, res) => {
-  const { session_id, participant_id, chunk_index } = req.body;
+    const isValid = await bcrypt.compare(password, user.password);
+    if (!isValid) return res.status(400).json({ error: "Invalid credentials" });
 
-  if(!req.file){
-    console.log("req.file mostly blob is empty");
-    res.json({"message" : "blob is empty"})
-    return;
+    if(!JWT_SECRET){
+      res.json({"error" : "jsonwebtoken is missing"});
+      return;
+    }
+    
+    const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: "1h" });
+
+    res.json({ token, user: { id: user.id, email: user.email } });
+  } catch (err) {
+    res.status(500).json({ error: "Something went wrong" });
   }
+});
 
-  console.log("Chunk received:", { session_id, participant_id, chunk_index, file: req.file.path });
 
-  try{
-      const result = await cloudinary.uploader.upload(req.file.path, {
-        resource_type:"raw",
-        public_id: session_id + "_" + participant_id + "_" + chunk_index
-      })
-      res.send({"url" : result})
-      
-    }catch(err : any){
-      res.json({"error occured while uploading" : err.message})
-    }
-
-})
-
-async function getChunksByPrefix(prefix: string): Promise<string[]> {
-  const ids: string[] = [];
-  let nextCursor: string | undefined = undefined;
-
-  do {
-    const res = await cloudinary.api.resources({
-      type: "upload",
-      resource_type: "raw", 
-      prefix,
-      max_results: 100,
-      next_cursor: nextCursor,
-    });
-
-    res.resources.forEach((r: any) => ids.push(r.public_id));
-    nextCursor = res.next_cursor;
-  } while (nextCursor);
-
-  ids.sort((a, b) => a.localeCompare(b));
-  return ids;
-}
-
-async function mergeChunksFromPrefix(prefix: string, outputPath: string) {
-  const publicIds = await getChunksByPrefix(prefix);
-  if (publicIds.length === 0) throw new Error("No chunks found for prefix " + prefix);
-
-  console.log(`Found ${publicIds.length} chunks to merge...`);
-
-  return new Promise<void>(async (resolve, reject) => {
-    const ffmpeg = spawn("ffmpeg", [
-      "-f", "webm",          
-      "-i", "pipe:0",       
-      "-c:v", "libvpx-vp9",  
-      "-c:a", "libopus",     
-      outputPath
-    ]);
-
-    ffmpeg.stderr.on("data", (data) => console.log(data.toString()));
-
-    ffmpeg.on("close", (code) => {
-      if (code === 0) {
-        console.log("✅ Merge complete:", outputPath);
-        resolve();
-      } else {
-        reject(new Error(`FFmpeg exited with code ${code}`));
-      }
-    });
-
-    // Stream chunks into ffmpeg.stdin
-    for (const id of publicIds) {
-      const url = cloudinary.url(id, { resource_type: "raw" });
-      console.log("Downloading:", url);
-
-      const response = await axios.get(url, { responseType: "stream" });
-      await new Promise<void>((res) => {
-        response.data.on("end", res);
-        response.data.pipe(ffmpeg.stdin, { end: false });
-      });
-    }
-
-    ffmpeg.stdin.end();
+const createToken = async ({roomName, participantId} : {roomName : string, participantId: string}) => {
+ 
+  const at = new AccessToken(process.env.LIVEKIT_API_KEY, process.env.LIVEKIT_API_SECRET, {
+    identity: participantId,
+    ttl: '100m',
   });
-}
-export async function mergeAndUpload(prefix: string) {
-  const outputFile = path.join(__dirname, "merged.webm");
+  at.addGrant({ roomJoin: true, room: roomName });
 
-  await mergeChunksFromPrefix(prefix, outputFile);
+  return await at.toJwt();
+};
 
-  const uploadRes = await cloudinary.uploader.upload(outputFile, {
-    resource_type: "video", 
-    folder: "merged_videos", 
-    public_id: `${prefix}_merged`, 
-    overwrite: true
-  });
+app.post('/getToken', async (req, res) => {
+  const {roomName, participantId} = req.body;
+  const token = await createToken({roomName, participantId});
 
-  fs.unlinkSync(outputFile);
+  res.json({"token" : token});
+});
 
-  console.log("✅ Uploaded merged video to Cloudinary:", uploadRes.secure_url);
-  return uploadRes.secure_url;
-}
 
-app.post("/get_url", async (req, res) => {
-  const {session_id} = req.body;
-
-  const url = await mergeAndUpload(`${session_id}_123_`);
-
-  res.json({"url": url});
-})
-
-app.listen(3000, () => {
-  console.log("server is running at 3000")
-})
+app.listen(3000, () => console.log(" Server running on http://localhost:3000"));

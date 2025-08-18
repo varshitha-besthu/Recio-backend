@@ -1,1 +1,1 @@
-{"root":["./src/index.ts"],"version":"5.9.2"}
+{"root":["./src/index.ts","./src/generated/prisma/client.d.ts","./src/generated/prisma/default.d.ts","./src/generated/prisma/edge.d.ts","./src/generated/prisma/index.d.ts","./src/generated/prisma/wasm.d.ts","./src/generated/prisma/runtime/index-browser.d.ts","./src/generated/prisma/runtime/library.d.ts","./src/middlewares/authmiddleware.ts","./src/selfrecording/controller.ts"],"version":"5.9.2"}
