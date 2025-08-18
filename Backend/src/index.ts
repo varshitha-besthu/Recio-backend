@@ -1,4 +1,4 @@
-// src/index.ts
+
 import express from "express";
 import { PrismaClient } from "../src/generated/prisma/client.js";
 import cors from "cors";
@@ -62,7 +62,7 @@ app.post("/signin", async (req, res) => {
 
     res.json({ token, user: { id: user.id, email: user.email } });
   } catch (err) {
-    res.status(500).json({ error: "Something went wrong" });
+    res.status(500).json({ error: err });
   }
 });
 
