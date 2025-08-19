@@ -14,7 +14,7 @@ import { spawn } from 'child_process';
 const app = express();
 const upload = multer({ dest: "uploads/" });
 
-const router = express.Router();
+export const router = express.Router();
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME as string,
@@ -134,8 +134,8 @@ export async function mergeAndUpload(prefix: string) {
 
 router.post("/get_url", async (req, res) => {
   const {session_id} = req.body;
-
-  const url = await mergeAndUpload(`${session_id}_123_`);
+  console.log("session_Id", session_id);
+  const url = await mergeAndUpload(`${session_id}_`);
 
   res.json({"url": url});
 })

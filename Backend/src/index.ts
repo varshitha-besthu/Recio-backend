@@ -5,6 +5,7 @@ import cors from "cors";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { AccessToken } from "livekit-server-sdk";
+import { router } from "./selfRecording/controller.js";
 
 const app = express();
 const prisma = new PrismaClient();
@@ -12,6 +13,9 @@ const prisma = new PrismaClient();
 app.use(express.json());
 app.use(cors());
 const JWT_SECRET = process.env.JWT_SECRET ;
+
+app.use("/api", router);
+
 app.post("/signup", async (req, res) => {
   try {
     const { email, password } = req.body;
