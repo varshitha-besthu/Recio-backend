@@ -70,23 +70,40 @@ app.post("/signin", async (req, res) => {
   }
 });
 
-
-const createToken = async ({roomName, participantId} : {roomName : string, participantId: string}) => {
+const createToken = async ({roomName, participantId, role} : {roomName : string, participantId: string, role: "creator" | "guest"}) => {
  
   const at = new AccessToken(process.env.LIVEKIT_API_KEY, process.env.LIVEKIT_API_SECRET, {
     identity: participantId,
     ttl: '100m',
   });
-  at.addGrant({ roomJoin: true, room: roomName });
 
+  at.addGrant({ roomJoin: true, room: roomName, canPublish: true, canSubscribe: true, canPublishData: role === "creator"});
   return await at.toJwt();
 };
 
 app.post('/getToken', async (req, res) => {
-  const {roomName, participantId} = req.body;
-  const token = await createToken({roomName, participantId});
+    const { roomName, participantId, role } = req.body;
+    let room;
+    if (role === "creator") {
+      room = await prisma.room.create({
+        data: {
+          name: roomName,
+          createdById: participantId,
+        },
+      });
+    } else {
+      room = await prisma.room.findUnique({
+        where: { name: roomName },
+      });
 
-  res.json({"token" : token});
+      if (!room) {
+        return res.status(400).json({ error: "Room does not exist" });
+      }
+    }
+
+    const token = await createToken({ roomName, participantId, role });
+
+    res.json({ token, room, role });
 });
 
 
