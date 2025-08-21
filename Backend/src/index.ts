@@ -13,7 +13,9 @@ const app = express();
 const prisma = new PrismaClient();
 
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(cors());
+
 const JWT_SECRET = process.env.JWT_SECRET ;
 const API_KEY = process.env.LIVEKIT_API_KEY ;
 const API_SECRET = process.env.LIVIKIT_API_SECRET;
