@@ -4,8 +4,10 @@ import { PrismaClient } from "../src/generated/prisma/client.js";
 import cors from "cors";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { AccessToken } from "livekit-server-sdk";
+import { AccessToken, WebhookReceiver } from "livekit-server-sdk";
 import { router } from "./selfRecording/controller.js";
+
+import bodyParser from "body-parser";
 
 const app = express();
 const prisma = new PrismaClient();
@@ -13,6 +15,9 @@ const prisma = new PrismaClient();
 app.use(express.json());
 app.use(cors());
 const JWT_SECRET = process.env.JWT_SECRET ;
+const API_KEY = process.env.LIVEKIT_API_KEY ;
+const API_SECRET = process.env.LIVIKIT_API_SECRET;
+
 
 app.use("/api", router);
 
@@ -105,6 +110,29 @@ app.post('/getToken', async (req, res) => {
 
     res.json({ token, room, role });
 });
+
+
+//@ts-ignore
+const webhookReceiver = new WebhookReceiver(API_KEY, API_SECRET);
+
+app.post("/livekit/webhook", 
+  bodyParser.text({ type: "*/*" }), 
+  async (req, res) => {
+    try {
+      const event = await webhookReceiver.receive(req.body, req.get("Authorization") || "");
+      console.log("Webhook event:", event);
+
+      if (event.event === "participant_joined") {
+        console.log("Participant joined:", event.participant?.identity);
+      }
+
+    } catch (err) {
+      console.error("Webhook validation failed", err);
+    }
+
+    res.sendStatus(200);
+  }
+);
 
 
 app.listen(3000, () => console.log(" Server running on http://localhost:3000"));
