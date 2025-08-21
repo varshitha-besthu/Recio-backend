@@ -23,6 +23,11 @@ const API_SECRET = process.env.LIVIKIT_API_SECRET;
 
 app.use("/api", router);
 
+app.get('/', (req, res) => {
+  res.sendStatus(200)
+})
+
+
 app.post("/signup", async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -47,7 +52,7 @@ app.post("/signup", async (req, res) => {
       return;
     }
     const token = jwt.sign({ userId: user.id }, JWT_SECRET);
-    console.log("User Signed in");
+    console.log("User Signed up");
     res.json({ token, user: { id: user.id, email: user.email } });
 
   } catch (err) {
@@ -71,7 +76,7 @@ app.post("/signin", async (req, res) => {
     }
     
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: "1h" });
-
+    console.log("Nee valle na")
     res.json({ token, user: { id: user.id, email: user.email } });
   } catch (err) {
     res.status(500).json({ error: err });
@@ -110,32 +115,22 @@ app.post('/getToken', async (req, res) => {
     }
 
     const token = await createToken({ roomName, participantId, role });
-
+    console.log("Okay okay giving the token")
     res.json({ token, room, role });
 });
 
 
 //@ts-ignore
-const webhookReceiver = new WebhookReceiver(API_KEY, API_SECRET);
+// const webhookReceiver = new WebhookReceiver(API_KEY, API_SECRET);
 
-app.post("/livekit/webhook", 
-  bodyParser.text({ type: "*/*" }), 
-  async (req, res) => {
-    try {
-      const event = await webhookReceiver.receive(req.body, req.get("Authorization") || "");
-      console.log("Webhook event:", event);
-
-      if (event.event === "participant_joined") {
-        console.log("Participant joined:", event.participant?.identity);
-      }
-
-    } catch (err) {
-      console.error("Webhook validation failed", err);
-    }
-
+app.post("/livekit/webhook",
+  bodyParser.text({ type: "*/*" }),
+  (req, res) => {
+    console.log("Raw webhook:", req.body);
     res.sendStatus(200);
   }
 );
+
 
 
 app.listen(3000, () => console.log(" Server running on http://localhost:3000"));
