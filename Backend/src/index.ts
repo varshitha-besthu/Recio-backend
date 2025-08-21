@@ -45,6 +45,7 @@ app.post("/signup", async (req, res) => {
       return;
     }
     const token = jwt.sign({ userId: user.id }, JWT_SECRET);
+    console.log("User Signed in");
     res.json({ token, user: { id: user.id, email: user.email } });
 
   } catch (err) {
