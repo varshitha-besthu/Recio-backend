@@ -95,15 +95,28 @@ const createToken = async ({roomName, participantId, role} : {roomName : string,
 };
 
 app.post('/getToken', async (req, res) => {
-    const { roomName, participantId, role } = req.body;
+    const { roomName, participantName, role } = req.body;
     let room;
+    let participantId;
+
     if (role === "creator") {
+      let participant = await prisma.user.findFirst({
+        where: {email: participantName}
+      })
+      if(!participant ){
+        console.log("participant Id in null");
+        res.json({"participantId is null": "okay"});
+        return;
+      }
+      participantId = participant.id;
       room = await prisma.room.create({
         data: {
           name: roomName,
-          createdById: participantId,
+          createdBy: {connect : {id: participantId}},
+          participants: {connect : {id: participantId}}
         },
       });
+
     } else {
       room = await prisma.room.findUnique({
         where: { name: roomName },
@@ -112,8 +125,30 @@ app.post('/getToken', async (req, res) => {
       if (!room) {
         return res.status(400).json({ error: "Room does not exist" });
       }
+
+      let participant = await prisma.user.findFirst({
+        where: {email: participantName}
+      });
+
+      if(!participant ){
+        console.log("participant Id in null");
+        res.json({"participantId is null": "okay"});
+        return;
+      }
+
+      participantId = participant.id;
+      room = await prisma.room.update({
+      where: { id: room.id },
+      data: {
+        participants: { connect: { id: participantId } }
+      },
+      include: { participants: true },
+
+    });
     }
-    console.log("participant Name", participantId);
+
+    console.log("participant Name", participantName);
+    console.log("Room:" ,  room);
     const token = await createToken({ roomName, participantId, role });
     console.log("Okay okay giving the token")
     res.json({ token, room, role });

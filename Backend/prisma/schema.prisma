@@ -26,6 +26,6 @@ model Room {
   updatedAt    DateTime @updatedAt
   createdById  String
 
-  createdBy    User     @relation("UserRooms", fields: [createdById], references: [email])
+  createdBy    User     @relation("UserRooms", fields: [createdById], references: [id])
   participants User[]   @relation("RoomParticipants")
 }
