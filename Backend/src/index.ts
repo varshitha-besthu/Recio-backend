@@ -121,12 +121,22 @@ app.post('/getToken', async (req, res) => {
 
 
 //@ts-ignore
-// const webhookReceiver = new WebhookReceiver(API_KEY, API_SECRET);
+const webhookReceiver = new WebhookReceiver(API_KEY, API_SECRET);
 
-app.post("/livekit/webhook",
-  bodyParser.text({ type: "*/*" }),
-  (req, res) => {
-    console.log("Raw webhook:", req.body);
+app.post("/livekit/webhook",bodyParser.text({ type: "*/*" }), async (req, res) => {
+    try {
+      const event = await webhookReceiver.receive(
+        req.body,
+        req.get("Authorization") || ""
+      );
+      console.log("Webhook event:", event);
+
+      if (event.event === "participant_joined") {
+        console.log("joined:", event.participant?.identity);
+      }
+    } catch (err) {
+      console.error("Webhook validation failed:", err);
+    }
     res.sendStatus(200);
   }
 );
