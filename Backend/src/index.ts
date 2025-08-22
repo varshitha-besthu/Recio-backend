@@ -113,7 +113,7 @@ app.post('/getToken', async (req, res) => {
         return res.status(400).json({ error: "Room does not exist" });
       }
     }
-
+    console.log("participant Name", participantId);
     const token = await createToken({ roomName, participantId, role });
     console.log("Okay okay giving the token")
     res.json({ token, room, role });
