@@ -125,6 +125,8 @@ const webhookReceiver = new WebhookReceiver(API_KEY, API_SECRET);
 
 app.post("/livekit/webhook",bodyParser.text({ type: "*/*" }), async (req, res) => {
     try {
+      console.log("API_KEY", API_KEY)
+      console.log("API_SECRET:", API_SECRET);
       const event = await webhookReceiver.receive(
         req.body,
         req.get("Authorization") || ""
