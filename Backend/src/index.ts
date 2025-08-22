@@ -127,11 +127,12 @@ app.post("/livekit/webhook",bodyParser.text({ type: "*/*" }), async (req, res) =
     try {
       console.log("API_KEY", API_KEY)
       console.log("API_SECRET:", API_SECRET);
+
+
       const event = await webhookReceiver.receive(
         req.body,
         req.get("Authorization") || ""
       );
-      console.log("Webhook event:", event);
 
       if (event.event === "participant_joined") {
         console.log("joined:", event.participant?.identity);
