@@ -125,15 +125,17 @@ export async function mergeAndUploadSideBySide(
       return Promise.resolve("url is empty");
     }
 
-    const localPath = path.join("/tmp", `participant_${i}.webm`);
+    const localPath = path.join(__dirname, `participant_${i}.webm`);
     const writer = fs.createWriteStream(localPath);
 
     console.log(`Downloading participant video ${i} from ${url}`);
+
     const response = await axios.get(url, { responseType: "stream" });
     response.data.pipe(writer);
 
     await new Promise<void>((resolve) => writer.on("finish", resolve));
     localFiles.push(localPath);
+
   }
 
   const outputPath = path.join("/tmp", `final_${Date.now()}.webm`);
