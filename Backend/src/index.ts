@@ -99,16 +99,25 @@ app.post('/getToken', async (req, res) => {
     let room;
     let participantId;
 
+    console.log("going to check");
     if (role === "creator") {
+      console.log("going to check in the creator");
+
       let participant = await prisma.user.findFirst({
         where: {email: participantName}
       })
+      console.log("Searched int the datbase");
+
       if(!participant ){
         console.log("participant Id in null");
         res.json({"participantId is null": "okay"});
         return;
       }
+
+      console.log("participant", participant);
+
       participantId = participant.id;
+      
       room = await prisma.room.create({
         data: {
           name: roomName,
@@ -118,10 +127,13 @@ app.post('/getToken', async (req, res) => {
       });
 
     } else {
+
+      console.log("going to check in else");
       room = await prisma.room.findUnique({
         where: { name: roomName },
       });
 
+      console.log("Checking in the room");
       if (!room) {
         return res.status(400).json({ error: "Room does not exist" });
       }
