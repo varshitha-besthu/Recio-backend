@@ -138,7 +138,7 @@ export async function mergeAndUploadSideBySide(
 
   }
 
-  const outputPath = path.join("/tmp", `final_${Date.now()}.webm`);
+  const outputPath = path.join(__dirname, `final_${Date.now()}.webm`);
 
   const ffmpegArgs: string[] = [];
   localFiles.forEach((f) => ffmpegArgs.push("-i", f));
