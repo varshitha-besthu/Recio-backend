@@ -26,30 +26,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 console.log(__dirname); 
-
-router.post("/upload_chunk", upload.single("blob"), async(req, res) => {
-  const { session_id, participant_id, chunk_index } = req.body;
-
-  if(!req.file){
-    console.log("req.file mostly blob is empty");
-    res.json({"message" : "blob is empty"})
-    return;
-  }
-
-  console.log("Chunk received:", { session_id, participant_id, chunk_index, file: req.file.path });
-
-  try{
-      const result = await cloudinary.uploader.upload(req.file.path, {
-        resource_type:"raw",
-        public_id: session_id + "_" + participant_id + "_" + chunk_index
-      })
-      res.send({"url" : result})
-      
-    }catch(err : any){
-      res.json({"error occured while uploading" : err.message})
-    }
-
-})
+ let urls: string[] = [];
 
 async function getChunksByPrefix(prefix: string): Promise<string[]> {
   const ids: string[] = [];
@@ -98,7 +75,6 @@ async function mergeChunksFromPrefix(prefix: string, outputPath: string) {
       }
     });
 
-    // Stream chunks into ffmpeg.stdin
     for (const id of publicIds) {
       const url = cloudinary.url(id, { resource_type: "raw" });
       console.log("Downloading:", url);
@@ -132,6 +108,110 @@ export async function mergeAndUpload(prefix: string) {
   return uploadRes.secure_url;
 }
 
+export async function mergeAndUploadSideBySide(
+  participantUrls: string[],
+  finalPublicId: string
+): Promise<string> {
+  if (!participantUrls || participantUrls.length === 0) {
+    throw new Error("No participant videos provided");
+  }
+
+  const localFiles: string[] = [];
+  for (let i = 0; i < participantUrls.length; i++) {
+    const url = participantUrls[i];
+
+    if(!url){
+      console.log("url is null or undefined from mergeupload side by side");
+      return Promise.resolve("url is empty");
+    }
+
+    const localPath = path.join("/tmp", `participant_${i}.webm`);
+    const writer = fs.createWriteStream(localPath);
+
+    console.log(`Downloading participant video ${i} from ${url}`);
+    const response = await axios.get(url, { responseType: "stream" });
+    response.data.pipe(writer);
+
+    await new Promise<void>((resolve) => writer.on("finish", resolve));
+    localFiles.push(localPath);
+  }
+
+  const outputPath = path.join("/tmp", `final_${Date.now()}.webm`);
+
+  const ffmpegArgs: string[] = [];
+  localFiles.forEach((f) => ffmpegArgs.push("-i", f));
+
+  const width = 320;  
+  const height = 240; 
+  const scaleParts = localFiles.map((_, i) => `[${i}:v]scale=${width}:${height}[v${i}]`);
+  const layout = localFiles.map((_, i) => `${i * width}_0`).join("|");
+  const xstackFilter = `${scaleParts.join(";")};${localFiles.map((_, i) => `[v${i}]`).join("")}xstack=inputs=${localFiles.length}:layout=${layout}[v]`;
+
+  ffmpegArgs.push(
+    "-filter_complex", xstackFilter,
+    "-map", "[v]",
+    "-c:v", "libvpx-vp9",
+    "-c:a", "libopus",
+    outputPath
+  );
+
+  await new Promise<void>((resolve, reject) => {
+    const ffmpeg = spawn("ffmpeg", ffmpegArgs);
+    ffmpeg.stderr.on("data", (data) => console.log(data.toString()));
+    ffmpeg.on("close", (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(`FFmpeg exited with code ${code}`));
+    });
+  });
+
+  console.log("✅ Side-by-side merge complete:", outputPath);
+
+  const uploadResult = await cloudinary.uploader.upload(outputPath, {
+    resource_type: "video",
+    public_id: finalPublicId,
+    overwrite: true
+  });
+
+  console.log("✅ Uploaded final video to Cloudinary:", uploadResult.secure_url);
+
+  localFiles.forEach((f) => fs.unlinkSync(f));
+  fs.unlinkSync(outputPath);
+
+  return uploadResult.secure_url;
+}
+
+router.post("/get_merged_url", async(req, res) => {
+    const outputFile = path.join(__dirname, "merged.webm");
+
+    const merged_url = await mergeAndUploadSideBySide(urls, outputFile);
+    console.log("merged_url is ready", merged_url);
+    res.json({"merged_url": merged_url})
+})
+
+router.post("/upload_chunk", upload.single("blob"), async(req, res) => {
+  const { session_id, participant_id, chunk_index } = req.body;
+
+  if(!req.file){
+    console.log("req.file mostly blob is empty");
+    res.json({"message" : "blob is empty"})
+    return;
+  }
+
+  console.log("Chunk received:", { session_id, participant_id, chunk_index, file: req.file.path });
+
+  try{
+      const result = await cloudinary.uploader.upload(req.file.path, {
+        resource_type:"raw",
+        public_id: session_id + "_" + participant_id + "_" + chunk_index
+      })
+      res.send({"url" : result})
+      
+    }catch(err : any){
+      res.json({"error occured while uploading" : err.message})
+    }
+
+})
+
 router.post("/get_url", async (req, res) => {
     const {session_id} = req.body;
     console.log("session_Id", session_id);
@@ -147,19 +227,19 @@ router.post("/get_url", async (req, res) => {
       console.log("Room is null from get_url");
       return;
     }
-    let url: string[] = [];
+   
 
     console.log("room Data from get_url", room.participants);
     const participants = room.participants;
 
     for (let i = 0; i < participants.length; i++) {
       console.log("participant id in the loop of participants", participants[i]?.id);
-      url[i] = await mergeAndUpload(`${session_id}_${participants[i]?.id}_`);
-      console.log("url at index", i, "is", url[i]);
+      urls[i] = await mergeAndUpload(`${session_id}_${participants[i]?.id}_`);
+      console.log("url at index", i, "is", urls[i]);
     }
 
-    console.log("All URLs:", url);
-    res.json({"urls": url});
+    console.log("All URLs:", urls);
+    res.json({"urls": urls});
 
   }
 )
