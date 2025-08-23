@@ -9,7 +9,7 @@ import axios from 'axios';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { spawn } from 'child_process';
-import { PrismaClient } from '@prisma/client/extension';
+import { PrismaClient } from "../generated/prisma/client.js";
 
 
 const app = express();
