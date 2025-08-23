@@ -135,7 +135,6 @@ router.post("/get_url", async (req, res) => {
   const {session_id} = req.body;
   console.log("session_Id", session_id);
 
-  
 
   const url = await mergeAndUpload(`${session_id}_`);
 

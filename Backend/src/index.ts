@@ -164,6 +164,7 @@ app.post('/getToken', async (req, res) => {
     }
 
     console.log("participant Name", participantName);
+    console.log("room", room);
     const token = await createToken({ roomName, participantId, role });
     console.log("Okay okay giving the token")
     res.json({ token, room, role });
