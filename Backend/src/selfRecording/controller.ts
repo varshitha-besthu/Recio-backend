@@ -159,7 +159,7 @@ router.post("/get_url", async (req, res) => {
     }
 
     console.log("All URLs:", url);
+    res.json({"urls": url});
 
   }
-
 )
