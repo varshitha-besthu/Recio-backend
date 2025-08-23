@@ -9,11 +9,12 @@ import axios from 'axios';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { spawn } from 'child_process';
-
+import { PrismaClient } from '../../src/generated/prisma/client.js';
 
 const app = express();
 const upload = multer({ dest: "uploads/" });
 export const router = express.Router();
+const prisma = new PrismaClient();
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME as string,
@@ -132,12 +133,33 @@ export async function mergeAndUpload(prefix: string) {
 }
 
 router.post("/get_url", async (req, res) => {
-  const {session_id} = req.body;
-  console.log("session_Id", session_id);
+    const {session_id} = req.body;
+    console.log("session_Id", session_id);
 
+    const room = await prisma.room.findUnique({
+      where: { id: session_id },  
+      include: {
+        participants: true,   
+      },
+    });
 
-  const url = await mergeAndUpload(`${session_id}_`);
+    if(!room){
+      console.log("Room is null from get_url");
+      return;
+    }
+    let url: string[] = [];
 
-  res.json({"url": url});
-})
+    console.log("room Data from get_url", room.participants);
+    const participants = room.participants;
 
+    for (let i = 0; i < participants.length; i++) {
+      console.log("participant id in the loop of participants", participants[i]?.id);
+      url[i] = await mergeAndUpload(`${session_id}_${participants[i]?.id}_`);
+      console.log("url at index", i, "is", url[i]);
+    }
+
+    console.log("All URLs:", url);
+
+  }
+
+)
