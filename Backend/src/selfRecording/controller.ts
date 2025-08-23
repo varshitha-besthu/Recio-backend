@@ -9,11 +9,12 @@ import axios from 'axios';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { spawn } from 'child_process';
+import { PrismaClient } from '@prisma/client/extension';
 
 
 const app = express();
 const upload = multer({ dest: "uploads/" });
-
+const prisma = new PrismaClient();
 export const router = express.Router();
 
 cloudinary.config({
@@ -135,6 +136,11 @@ export async function mergeAndUpload(prefix: string) {
 router.post("/get_url", async (req, res) => {
   const {session_id} = req.body;
   console.log("session_Id", session_id);
+
+  const participants = await prisma.room.findMany({
+    
+  })
+
   const url = await mergeAndUpload(`${session_id}_`);
 
   res.json({"url": url});

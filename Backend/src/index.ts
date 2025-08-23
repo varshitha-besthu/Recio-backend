@@ -107,6 +107,8 @@ app.post('/getToken', async (req, res) => {
       let participant = await prisma.user.findFirst({
         where: {email: participantName}
       })
+
+      
       console.log("Searched int the datbase");
 
       if(!participant ){
@@ -128,15 +130,16 @@ app.post('/getToken', async (req, res) => {
       });
 
     } else {
+      
       console.log("going to check in else");
       room = await prisma.room.findUnique({
         where: { name: roomName },
       });
 
-      console.log("Checking in the room");
       if (!room) {
         return res.status(400).json({ error: "Room does not exist" });
       }
+      console.log("Checking in the room", room);
 
       let participant = await prisma.user.findFirst({
         where: {email: participantName}
@@ -150,46 +153,23 @@ app.post('/getToken', async (req, res) => {
 
       participantId = participant.id;
       room = await prisma.room.update({
-      where: { id: room.id },
-      data: {
-        participants: { connect: { id: participantId } }
-      },
-      include: { participants: true },
+        where: { id: room.id },
+        data: {
+          participants: { connect: { id: participantId } }
+        },
+        include: { participants: true },
+      });
 
-    });
+      console.log("updated the participants,", room);
     }
 
     console.log("participant Name", participantName);
-    console.log("Room:" ,  room);
     const token = await createToken({ roomName, participantId, role });
     console.log("Okay okay giving the token")
     res.json({ token, room, role });
 });
 
 
-//@ts-ignore
-// const webhookReceiver = new WebhookReceiver(API_KEY, API_SECRET);
-
-// app.post("/livekit/webhook",bodyParser.text({ type: "*/*" }), async (req, res) => {
-//     try {
-//       console.log("API_KEY", API_KEY)
-//       console.log("API_SECRET:", API_SECRET);
-
-
-//       const event = await webhookReceiver.receive(
-//         req.body,
-//         req.get("Authorization") || ""
-//       );
-
-//       if (event.event === "participant_joined") {
-//         console.log("joined:", event.participant?.identity);
-//       }
-//     } catch (err) {
-//       console.error("Webhook validation failed:", err);
-//     }
-//     res.sendStatus(200);
-//   }
-// );
 
 
 
