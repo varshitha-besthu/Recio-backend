@@ -100,6 +100,7 @@ app.post('/getToken', async (req, res) => {
     let participantId;
 
     console.log("going to check");
+
     if (role === "creator") {
       console.log("going to check in the creator");
 
@@ -127,7 +128,6 @@ app.post('/getToken', async (req, res) => {
       });
 
     } else {
-
       console.log("going to check in else");
       room = await prisma.room.findUnique({
         where: { name: roomName },
@@ -168,28 +168,28 @@ app.post('/getToken', async (req, res) => {
 
 
 //@ts-ignore
-const webhookReceiver = new WebhookReceiver(API_KEY, API_SECRET);
+// const webhookReceiver = new WebhookReceiver(API_KEY, API_SECRET);
 
-app.post("/livekit/webhook",bodyParser.text({ type: "*/*" }), async (req, res) => {
-    try {
-      console.log("API_KEY", API_KEY)
-      console.log("API_SECRET:", API_SECRET);
+// app.post("/livekit/webhook",bodyParser.text({ type: "*/*" }), async (req, res) => {
+//     try {
+//       console.log("API_KEY", API_KEY)
+//       console.log("API_SECRET:", API_SECRET);
 
 
-      const event = await webhookReceiver.receive(
-        req.body,
-        req.get("Authorization") || ""
-      );
+//       const event = await webhookReceiver.receive(
+//         req.body,
+//         req.get("Authorization") || ""
+//       );
 
-      if (event.event === "participant_joined") {
-        console.log("joined:", event.participant?.identity);
-      }
-    } catch (err) {
-      console.error("Webhook validation failed:", err);
-    }
-    res.sendStatus(200);
-  }
-);
+//       if (event.event === "participant_joined") {
+//         console.log("joined:", event.participant?.identity);
+//       }
+//     } catch (err) {
+//       console.error("Webhook validation failed:", err);
+//     }
+//     res.sendStatus(200);
+//   }
+// );
 
 
 
