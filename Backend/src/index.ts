@@ -95,7 +95,7 @@ const createToken = async ({roomName, participantId, role} : {roomName : string,
 };
 
 app.post('/getToken', async (req, res) => {
-    const { roomName, participantName, role } = req.body;
+    const { roomName, participantName, role} = req.body;
     let room;
     let participantId;
 
