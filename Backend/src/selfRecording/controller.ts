@@ -111,18 +111,19 @@ export async function mergeAndUpload(prefix: string) {
 export async function mergeAndUploadSideBySide(
   participantUrls: string[],
   finalPublicId: string
-): Promise<string> {
+){
   if (!participantUrls || participantUrls.length === 0) {
     throw new Error("No participant videos provided");
   }
 
   const localFiles: string[] = [];
+
   for (let i = 0; i < participantUrls.length; i++) {
     const url = participantUrls[i];
 
     if(!url){
       console.log("url is null or undefined from mergeupload side by side");
-      return Promise.resolve("url is empty");
+      return ;
     }
 
     const localPath = path.join(__dirname, `participant_${i}.webm`);
@@ -133,9 +134,16 @@ export async function mergeAndUploadSideBySide(
     const response = await axios.get(url, { responseType: "stream" });
     response.data.pipe(writer);
 
-    await new Promise<void>((resolve) => writer.on("finish", resolve));
+    await new Promise<void>((resolve, reject) => {
+      writer.on("finish", resolve);
+      writer.on("error", reject);
+    });
     localFiles.push(localPath);
+  }
 
+  if (localFiles.length === 1) {
+    console.log("Only one video, skipping merge");
+    return participantUrls[0];
   }
 
   const outputPath = path.join(__dirname, `final_${Date.now()}.webm`);
@@ -168,23 +176,27 @@ export async function mergeAndUploadSideBySide(
 
   console.log("✅ Side-by-side merge complete:", outputPath);
 
-  const uploadResult = await cloudinary.uploader.upload(outputPath, {
-    resource_type: "video",
-    public_id: finalPublicId,
-    overwrite: true
-  });
+  console.log("gonna upload to cloudinary");
 
-  console.log("✅ Uploaded final video to Cloudinary:", uploadResult.secure_url);
+  try{
+    const uploadResult = await cloudinary.uploader.upload(outputPath, {
+      resource_type: "video",
+      public_id: finalPublicId,
+      overwrite: true
+    });
 
-  localFiles.forEach((f) => fs.unlinkSync(f));
-  fs.unlinkSync(outputPath);
+    console.log("✅ Uploaded final video to Cloudinary:", uploadResult.secure_url);
+    localFiles.forEach((f) => fs.unlinkSync(f));
+    fs.unlinkSync(outputPath);
 
-  return uploadResult.secure_url;
+    return uploadResult.secure_url;
+  }catch(error){
+    console.log("Got an error while uploading to the cloudinary", error);
+  }
 }
 
 router.post("/get_merged_url", async(req, res) => {
     const outputFile = path.join(__dirname, "merged.webm");
-
     const merged_url = await mergeAndUploadSideBySide(urls, outputFile);
     console.log("merged_url is ready", merged_url);
     res.json({"merged_url": merged_url})
