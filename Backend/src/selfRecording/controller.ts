@@ -109,8 +109,7 @@ export async function mergeAndUpload(prefix: string) {
 }
 
 export async function mergeAndUploadSideBySide(
-  participantUrls: string[],
-  finalPublicId: string
+  participantUrls: string[]
 ){
   if (!participantUrls || participantUrls.length === 0) {
     throw new Error("No participant videos provided");
@@ -181,7 +180,6 @@ export async function mergeAndUploadSideBySide(
   try{
     const uploadResult = await cloudinary.uploader.upload(outputPath, {
       resource_type: "video",
-      public_id: finalPublicId,
       overwrite: true
     });
 
@@ -196,8 +194,7 @@ export async function mergeAndUploadSideBySide(
 }
 
 router.post("/get_merged_url", async(req, res) => {
-    const outputFile = path.join(__dirname, "merged.webm");
-    const merged_url = await mergeAndUploadSideBySide(urls, outputFile);
+    const merged_url = await mergeAndUploadSideBySide(urls);
     console.log("merged_url is ready", merged_url);
     res.json({"merged_url": merged_url})
 })
