@@ -155,5 +155,28 @@ app.post('/getToken', async (req, res) => {
   }
 });
 
+app.post('/getRooms', async(req, res) => {
+  const { participantName } = req.body;
+
+  const fetchedRooms  = await prisma.user.findMany({
+    where: {
+      email: participantName
+    },
+    include:{
+      roomsCreated: true,
+      roomsJoined: true
+    }
+  })
+
+  if(!fetchedRooms){
+    console.log("No fetched room");
+    res.status(200).send("no availabele rooms");
+  }
+
+  console.log("We found the rooms bro")
+  res.json({"rooms" : fetchedRooms})
+
+})
+
 
 app.listen(3000, () => console.log(" Server running on http://localhost:3000"));
