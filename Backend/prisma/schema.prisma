@@ -17,6 +17,7 @@ model User {
   
   roomsCreated Room[]   @relation("UserRooms")
   roomsJoined  Room[]   @relation("RoomParticipants")
+  recordings  Recording[]
 }
 
 model Room {
@@ -29,4 +30,18 @@ model Room {
 
   createdBy    User     @relation("UserRooms", fields: [createdById], references: [id])
   participants User[]   @relation("RoomParticipants")
+  recordings   Recording[]
+}
+
+model Recording {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  url       String   
+  type      String   
+
+  roomId    String
+  room      Room     @relation(fields: [roomId], references: [id])
+
+  userId    String?  
+  user      User?    @relation(fields: [userId], references: [id])
 }

@@ -174,7 +174,10 @@ app.post('/getRooms', async(req, res) => {
   }
 
   console.log("We found the rooms bro", fetchedRooms)
-  res.json({"rooms" : fetchedRooms})
+  res.json({
+    "roomsCreated" : fetchedRooms[0]?.roomsCreated,
+    "roomsJoined" : fetchedRooms[0]?.roomsJoined
+  })
 
 })
 
