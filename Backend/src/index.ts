@@ -173,7 +173,7 @@ app.post('/getRooms', async(req, res) => {
     res.status(200).send("no availabele rooms");
   }
 
-  console.log("We found the rooms bro")
+  console.log("We found the rooms bro", fetchedRooms)
   res.json({"rooms" : fetchedRooms})
 
 })
