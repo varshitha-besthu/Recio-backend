@@ -10,6 +10,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { spawn } from 'child_process';
 import { PrismaClient } from '../../src/generated/prisma/client.js';
+import { url } from 'inspector';
 
 const app = express();
 const upload = multer({ dest: "uploads/" });
@@ -194,7 +195,27 @@ export async function mergeAndUploadSideBySide(
 }
 
 router.post("/get_merged_url", async(req, res) => {
+    const {session_Id} = req.body;
     const merged_url = await mergeAndUploadSideBySide(urls);
+
+    try {
+      await prisma.room.update({
+        where: {
+            id: session_Id
+        },
+        data: {
+          recordings: {
+            create: {
+              url: merged_url!,
+              type: "mixed"
+            }
+          }
+        }
+      })
+    }catch(error){
+      console.log("something is error in uploading the mixed url");
+      res.status(200).json("okay okay, I got error while uploading to the database");
+    }
     console.log("merged_url is ready", merged_url);
     res.json({"merged_url": merged_url})
 })
