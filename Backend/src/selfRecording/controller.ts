@@ -239,18 +239,43 @@ router.post("/get_url", async (req, res) => {
       return;
     }
    
-
     console.log("room Data from get_url", room.participants);
     const participants = room.participants;
 
     for (let i = 0; i < participants.length; i++) {
       console.log("participant id in the loop of participants", participants[i]?.id);
       urls[i] = await mergeAndUpload(`${session_id}_${participants[i]?.id}_`);
+
+      if(!urls[i]){
+        console.log(`Urls${i} is null`);
+        continue;
+      }
       console.log("url at index", i, "is", urls[i]);
     }
 
+    const pushToDb = await prisma.room.update({
+        where: { id: session_id },
+        data: {
+          recordings: {
+            create: participants
+              .map((p, i) => 
+                urls[i]
+                  ? {
+                      url: urls[i],
+                      type: "individual",
+                      userId: p.id,
+                    }
+                  : null
+              )
+              .filter(Boolean) as any, 
+          },
+        },
+      });
+
+    console.log("pushToDb" , pushToDb);
     console.log("All URLs:", urls);
-    res.json({"urls": urls});
+
+    res.json({"urls": urls, "pushToDb" : pushToDb});
 
   }
 )
