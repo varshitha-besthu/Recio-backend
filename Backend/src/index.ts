@@ -27,7 +27,6 @@ app.get('/', (req, res) => {
   res.sendStatus(200)
 })
 
-
 app.post("/signup", async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -95,83 +94,66 @@ const createToken = async ({roomName, participantId, role} : {roomName : string,
 };
 
 app.post('/getToken', async (req, res) => {
-    const { roomName, participantName, role} = req.body;
+  try {
+    const { roomName, participantName, role } = req.body;
     let room;
     let participantId;
 
     console.log("going to check");
+    const participant = await prisma.user.findUnique({
+      where: { email: participantName },
+    });
+
+    if (!participant) {
+      console.log("participant not found");
+      return res.status(400).json({ error: "Participant does not exist" });
+    }
+    participantId = participant.id;
 
     if (role === "creator") {
-      console.log("going to check in the creator");
+      console.log("role = creator");
 
-      let participant = await prisma.user.findFirst({
-        where: {email: participantName}
-      })
-
-      
-      console.log("Searched int the datbase");
-
-      if(!participant ){
-        console.log("participant Id in null");
-        res.json({"participantId is null": "okay"});
-        return;
-      }
-
-      console.log("participant", participant);
-
-      participantId = participant.id;
-      
       room = await prisma.room.create({
         data: {
           name: roomName,
-          createdBy: {connect : {id: participantId}},
-          participants: {connect : {id: participantId}}
+          createdBy: { connect: { id: participantId } },
+          participants: { connect: { id: participantId } },
         },
+        include: { createdBy: true, participants: true },
       });
 
     } else {
-      
-      console.log("going to check in else");
+      console.log("role = joiner");
       room = await prisma.room.findUnique({
         where: { name: roomName },
+        include: { participants: true },
       });
 
       if (!room) {
         return res.status(400).json({ error: "Room does not exist" });
       }
-      console.log("Checking in the room", room);
 
-      let participant = await prisma.user.findFirst({
-        where: {email: participantName}
-      });
-
-      if(!participant ){
-        console.log("participant Id in null");
-        res.json({"participantId is null": "okay"});
-        return;
+      const alreadyJoined = room.participants.some(p => p.id === participantId);
+      if (!alreadyJoined) {
+        room = await prisma.room.update({
+          where: { id: room.id },
+          data: {
+            participants: { connect: { id: participantId } },
+          },
+          include: { participants: true },
+        });
       }
-
-      participantId = participant.id;
-      room = await prisma.room.update({
-        where: { id: room.id },
-        data: {
-          participants: { connect: { id: participantId } }
-        },
-        include: { participants: true },
-      });
-
-      console.log("updated the participants,", room);
     }
-
-    console.log("participant Name", participantName);
-    console.log("room", room);
+    console.log("participant:", participantName);
+    console.log("room:", room);
     const token = await createToken({ roomName, participantId, role });
-    console.log("Okay okay giving the token")
     res.json({ token, room, role });
+
+  } catch (error) {
+    console.error("Error in /getToken:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
 });
-
-
-
 
 
 app.listen(3000, () => console.log(" Server running on http://localhost:3000"));
