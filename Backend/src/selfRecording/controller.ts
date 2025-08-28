@@ -220,36 +220,18 @@ router.post("/get_merged_url", async(req, res) => {
     res.json({"merged_url": merged_url})
 })
 
-router.post("/upload_chunk", upload.single("blob"), async(req, res) => {
-  const { session_id, participant_id, chunk_index } = req.body;
+router.post("/get_url", async (req, res) => {
+    const {sessionId} = req.body;
+    console.log("sessionId", sessionId);
 
-  if(!req.file){
-    console.log("req.file mostly blob is empty");
-    res.json({"message" : "blob is empty"})
-    return;
-  }
-
-  console.log("Chunk received:", { session_id, participant_id, chunk_index, file: req.file.path });
-
-  try{
-      const result = await cloudinary.uploader.upload(req.file.path, {
-        resource_type:"raw",
-        public_id: session_id + "_" + participant_id + "_" + chunk_index
-      })
-      res.send({"url" : result})
-      
-    }catch(err : any){
-      res.json({"error occured while uploading" : err.message})
+    if(!sessionId){
+      console.log("sessionId is null");
+      res.json({"error": "SessionId in null can't proceed"});
+      return;
     }
 
-})
-
-router.post("/get_url", async (req, res) => {
-    const {session_id} = req.body;
-    console.log("session_Id", session_id);
-
     const room = await prisma.room.findUnique({
-      where: { id: session_id },  
+      where: { id: sessionId },  
       include: {
         participants: true,   
       },
@@ -265,7 +247,7 @@ router.post("/get_url", async (req, res) => {
 
     for (let i = 0; i < participants.length; i++) {
       console.log("participant id in the loop of participants", participants[i]?.id);
-      urls[i] = await mergeAndUpload(`${session_id}_${participants[i]?.id}_`);
+      urls[i] = await mergeAndUpload(`${sessionId}_${participants[i]?.id}_`);
 
       if(!urls[i]){
         console.log(`Urls${i} is null`);
@@ -275,7 +257,7 @@ router.post("/get_url", async (req, res) => {
     }
 
     const pushToDb = await prisma.room.update({
-        where: { id: session_id },
+        where: { id: sessionId },
         data: {
           recordings: {
             create: participants
@@ -300,3 +282,29 @@ router.post("/get_url", async (req, res) => {
 
   }
 )
+
+router.post("/upload_chunk", upload.single("blob"), async(req, res) => {
+  const { session_id, participant_id, chunk_index } = req.body;
+
+  if(!req.file){
+    console.log("req.file mostly blob is empty");
+    res.json({"message" : "blob is empty"})
+    return;
+  }
+
+  console.log("Chunk received:", { session_id, participant_id, chunk_index, file: req.file.path });
+
+  try{
+      const result = await cloudinary.uploader.upload(req.file.path, {
+        resource_type:"raw",
+        public_id: session_id + "_" + participant_id + "_" + chunk_index
+      })
+      res.send({"url" : result})
+      
+    }catch(err : any){
+      res.json({"error occured while uploading" : err.message})
+    }
+
+})
+
+
