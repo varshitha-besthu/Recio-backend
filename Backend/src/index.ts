@@ -199,16 +199,26 @@ app.post("/prev_mixed_urls", async(req, res) => {
             room: {
               createdById: participant.id,
             },
+            
           },
           select: {
             id: true,
             url: true,
             createdAt: true,
             roomId: true,
+            room: {
+              select: {
+                name: true
+              }
+            }
           },
       })
       console.log("fetchedMexedUrls", fetchMixedUrls);
-      res.json({"fetchedUrls": fetchMixedUrls.map(room => room.url)})
+      
+      const fetchedUrls = fetchMixedUrls.map(room => ({url: room.url, roomName: room.room.name}));
+      console.log("fetchedUrls", fetchedUrls);
+
+      res.json({"fetchedUrls" :  fetchedUrls})
       
     }catch(error){
       console.log("got an error while fetching the mixed urls", error)
