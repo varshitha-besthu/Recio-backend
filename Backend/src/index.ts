@@ -181,5 +181,40 @@ app.post('/getRooms', async(req, res) => {
 
 })
 
+app.post("/prev_mixed_urls", async(req, res) => {
+    const {participantName } = req.body;
+    try{
+      const participant = await prisma.user.findFirst({
+        where: {email: participantName}
+      })
+      if(!participant){
+        console.log("No participant with that name");
+        res.json("no participant with that name from prev_mixed_urls");
+        return;
+      }
+      console.log("particpant", participant);
+      const fetchMixedUrls = await prisma.recording.findMany({
+          where: {
+            type: "mixed",
+            room: {
+              createdById: participant.id,
+            },
+          },
+          select: {
+            id: true,
+            url: true,
+            createdAt: true,
+            roomId: true,
+          },
+      })
+      console.log("fetchedMexedUrls", fetchMixedUrls);
+      res.json({"fetchedUrls": fetchMixedUrls.map(room => room.url)})
+      
+    }catch(error){
+      console.log("got an error while fetching the mixed urls", error)
+    }
+})
+
+
 
 app.listen(3000, () => console.log(" Server running on http://localhost:3000"));

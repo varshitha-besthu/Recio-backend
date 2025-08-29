@@ -10,7 +10,6 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { spawn } from 'child_process';
 import { PrismaClient } from '../../src/generated/prisma/client.js';
-import { url } from 'inspector';
 
 const app = express();
 const upload = multer({ dest: "uploads/" });
@@ -306,5 +305,4 @@ router.post("/upload_chunk", upload.single("blob"), async(req, res) => {
     }
 
 })
-
 
