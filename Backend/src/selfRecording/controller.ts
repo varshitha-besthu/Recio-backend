@@ -295,9 +295,11 @@ router.post("/upload_chunk", upload.single("blob"), async(req, res) => {
 
   try{
       const result = await cloudinary.uploader.upload(req.file.path, {
-        resource_type:"raw",
-        public_id: session_id + "_" + participant_id + "_" + chunk_index
-      })
+        resource_type: "video",   
+        public_id: session_id + "_" + participant_id + "_" + chunk_index,
+        format: "webm"            
+      });
+
       res.send({"url" : result})
       
     }catch(err : any){
