@@ -96,7 +96,7 @@ export async function mergeAndUpload(prefix: string) {
   await mergeChunksFromPrefix(prefix, outputFile);
 
   const uploadRes = await cloudinary.uploader.upload(outputFile, {
-    resource_type: "video", 
+    resource_type: "raw", 
     folder: "merged_videos", 
     public_id: `${prefix}_merged`, 
     overwrite: true
@@ -179,7 +179,7 @@ export async function mergeAndUploadSideBySide(
 
   try{
     const uploadResult = await cloudinary.uploader.upload(outputPath, {
-      resource_type: "video",
+      resource_type: "raw",
       overwrite: true
     });
 
@@ -295,7 +295,7 @@ router.post("/upload_chunk", upload.single("blob"), async(req, res) => {
 
   try{
       const result = await cloudinary.uploader.upload(req.file.path, {
-        resource_type: "video",   
+        resource_type: "raw",   
         public_id: session_id + "_" + participant_id + "_" + chunk_index,
         format: "webm"            
       });
