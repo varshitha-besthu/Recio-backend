@@ -215,7 +215,7 @@ app.post("/prev_mixed_urls", async(req, res) => {
       })
       console.log("fetchedMexedUrls", fetchMixedUrls);
       
-      const fetchedUrls = fetchMixedUrls.map(room => ({url: room.url, roomName: room.room.name}));
+      const fetchedUrls = fetchMixedUrls.map(room => ({url: room.url, roomName: room.room.name, roomId: room.roomId}));
       console.log("fetchedUrls", fetchedUrls);
 
       res.json({"fetchedUrls" :  fetchedUrls})
@@ -225,6 +225,38 @@ app.post("/prev_mixed_urls", async(req, res) => {
     }
 })
 
+app.post("/fetch_users_by_roomId", async(req, res) => {
+  const {roomId} = req.body;
+    const fetchedUsers = await prisma.room.findMany({
+      where: {id: roomId},
+      select: {
+        participants: true
+      }
+    })
+
+
+    console.log("fetchedUsers", fetchedUsers[0]?.participants);
+    res.json({"fetchedUsers": fetchedUsers[0]?.participants});
+    
+})
+
+app.post("/fetch_url_by_userId_roomId_type", async(req, res) => {
+    const {roomId, userId, type} = req.body;
+
+    const response = await prisma.recording.findFirst({
+      where: {
+        roomId: roomId,
+        userId: userId,
+        type: type
+      },
+      select: {
+        url: true
+      }
+    });
+
+    console.log("response url from fetch_url_by_userId_roomId_type", response);
+    res.json(response);
+})
 
 
 app.listen(3000, () => console.log(" Server running on http://localhost:3000"));
