@@ -91,7 +91,9 @@ async function mergeChunksFromPrefix(prefix: string, outputPath: string) {
 }
 
 export async function mergeAndUpload(prefix: string) {
+  
   const outputFile = path.join(__dirname, "merged.webm");
+  if (fs.existsSync(outputFile)) fs.unlinkSync(outputFile);
 
   await mergeChunksFromPrefix(prefix, outputFile);
 
