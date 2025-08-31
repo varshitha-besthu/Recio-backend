@@ -26,7 +26,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 console.log(__dirname); 
- let urls: string[] = [];
+let urls: string[] = [];
 
 async function getChunksByPrefix(prefix: string): Promise<string[]> {
   const ids: string[] = [];
@@ -194,8 +194,9 @@ export async function mergeAndUploadSideBySide(
 }
 
 router.post("/get_merged_url", async(req, res) => {
-    const {session_Id} = req.body;
-    const merged_url = await mergeAndUploadSideBySide(urls);
+    const {session_Id, urlF} = req.body;
+
+    const merged_url = await mergeAndUploadSideBySide(urlF);
 
     try {
       await prisma.room.update({
