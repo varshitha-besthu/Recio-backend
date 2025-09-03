@@ -7,7 +7,6 @@ import jwt from "jsonwebtoken";
 import { AccessToken, WebhookReceiver } from "livekit-server-sdk";
 import { router } from "./selfRecording/controller.js";
 
-import bodyParser from "body-parser";
 
 const app = express();
 const prisma = new PrismaClient();

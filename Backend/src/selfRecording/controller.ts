@@ -10,11 +10,13 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { spawn } from 'child_process';
 import { PrismaClient } from '../../src/generated/prisma/client.js';
+import { url } from 'inspector';
 
 const app = express();
 const upload = multer({ dest: "uploads/" });
 export const router = express.Router();
 const prisma = new PrismaClient();
+
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME as string,
@@ -27,6 +29,7 @@ const __dirname = path.dirname(__filename);
 
 console.log(__dirname); 
 let urls: string[] = [];
+let screenShareurls: string[] = [];
 
 async function getChunksByPrefix(prefix: string): Promise<string[]> {
   const ids: string[] = [];
@@ -91,7 +94,7 @@ async function mergeChunksFromPrefix(prefix: string, outputPath: string) {
 }
 
 export async function mergeAndUpload(prefix: string) {
-  
+
   const outputFile = path.join(__dirname, "merged.webm");
   if (fs.existsSync(outputFile)) fs.unlinkSync(outputFile);
 
@@ -250,6 +253,8 @@ router.post("/get_url", async (req, res) => {
     for (let i = 0; i < participants.length; i++) {
       console.log("participant id in the loop of participants", participants[i]?.id);
       urls[i] = await mergeAndUpload(`${sessionId}_${participants[i]?.id}_`);
+      screenShareurls[i] = await mergeAndUpload(`${sessionId}_${participants[i]?.id}-screen`)
+    
 
       if(!urls[i]){
         console.log(`Urls${i} is null`);
@@ -259,34 +264,43 @@ router.post("/get_url", async (req, res) => {
     }
 
     const pushToDb = await prisma.room.update({
-        where: { id: sessionId },
-        data: {
-          recordings: {
-            create: participants
-              .map((p, i) => 
-                urls[i]
-                  ? {
-                      url: urls[i],
-                      type: "individual",
-                      userId: p.id,
-                    }
-                  : null
-              )
-              .filter(Boolean) as any, 
-          },
+      where: { id: sessionId },
+      data: {
+        recordings: {
+          create: participants.flatMap((p, i) => {
+            const recs: any[] = [];
+            if (urls[i]) {
+              recs.push({
+                url: urls[i],
+                type: "individual",
+                userId: p.id,
+              });
+            }
+            if (screenShareurls[i]) {
+              recs.push({
+                url: screenShareurls[i],
+                type: "individual-screen",
+                userId: p.id,
+              });
+            }
+            return recs;
+          }),
         },
-      });
+      },
+    });
+
 
     console.log("pushToDb" , pushToDb);
     console.log("All URLs:", urls);
+    console.log("screenShareUrls", screenShareurls);
 
-    res.json({"urls": urls, "pushToDb" : pushToDb});
+    res.json({"urls": urls, "pushToDb" : pushToDb, "screeShareUrls": screenShareurls});
 
   }
 )
 
 router.post("/upload_chunk", upload.single("blob"), async(req, res) => {
-  const { session_id, participant_id, chunk_index } = req.body;
+  const { session_id, participant_id, chunk_index, type} = req.body;
 
   if(!req.file){
     console.log("req.file mostly blob is empty");
@@ -297,9 +311,15 @@ router.post("/upload_chunk", upload.single("blob"), async(req, res) => {
   console.log("Chunk received:", { session_id, participant_id, chunk_index, file: req.file.path });
 
   try{
+      let public_id = "";
+      if(type === "screenShare"){
+        public_id = session_id + "_" + participant_id + "-screen" + chunk_index;
+      }else{
+        public_id = session_id + "_" + participant_id + "_" +  chunk_index;
+      }
       const result = await cloudinary.uploader.upload(req.file.path, {
         resource_type: "raw",   
-        public_id: session_id + "_" + participant_id + "_" + chunk_index,
+        public_id: public_id,
         format: "webm"            
       });
 
