@@ -32,8 +32,11 @@ let urls: string[] = [];
 let screenShareurls: string[] = [];
 
 async function getChunksByPrefix(prefix: string): Promise<string[]> {
+
+  console.log("prefix from - msg from getChunksByPrefix", prefix);
   const ids: string[] = [];
   let nextCursor: string | undefined = undefined;
+  console.log("prefix is", prefix);
 
   do {
     const res = await cloudinary.api.resources({
@@ -49,12 +52,17 @@ async function getChunksByPrefix(prefix: string): Promise<string[]> {
   } while (nextCursor);
 
   ids.sort((a, b) => a.localeCompare(b));
+  console.log("ids - from getChunksByPrefix", ids);
   return ids;
 }
 
 async function mergeChunksFromPrefix(prefix: string, outputPath: string) {
+  console.log("mergeChunksfromPrefix - msg from mergeChunksfromPrefix", prefix);
   const publicIds = await getChunksByPrefix(prefix);
-  if (publicIds.length === 0) throw new Error("No chunks found for prefix " + prefix);
+  if (publicIds.length === 0) {
+    console.log("No chunks found for prefix " + prefix);
+    return null;
+  }
 
   console.log(`Found ${publicIds.length} chunks to merge...`);
 
@@ -78,7 +86,10 @@ async function mergeChunksFromPrefix(prefix: string, outputPath: string) {
       }
     });
 
+    console.log("public Ids", publicIds);
+
     for (const id of publicIds) {
+      console.log("inside the publicIds");
       const url = cloudinary.url(id, { resource_type: "raw" });
       console.log("Downloading:", url);
 
@@ -91,15 +102,21 @@ async function mergeChunksFromPrefix(prefix: string, outputPath: string) {
 
     ffmpeg.stdin.end();
   });
+
 }
 
 export async function mergeAndUpload(prefix: string) {
 
   const outputFile = path.join(__dirname, "merged.webm");
   if (fs.existsSync(outputFile)) fs.unlinkSync(outputFile);
+  console.log("prefix is - msg from mergeAndupload", prefix);
+  const res = await mergeChunksFromPrefix(prefix, outputFile);
 
-  await mergeChunksFromPrefix(prefix, outputFile);
-
+  if(res === null){
+    console.log("I didn't found the url - msg from mergeAndUpload function");
+    console.log
+    return "not found";
+  }
   const uploadRes = await cloudinary.uploader.upload(outputFile, {
     resource_type: "raw", 
     folder: "merged_videos", 
@@ -253,7 +270,7 @@ router.post("/get_url", async (req, res) => {
     for (let i = 0; i < participants.length; i++) {
       console.log("participant id in the loop of participants", participants[i]?.id);
       urls[i] = await mergeAndUpload(`${sessionId}_${participants[i]?.id}_`);
-      screenShareurls[i] = await mergeAndUpload(`${sessionId}_${participants[i]?.id}-screen`)
+      // screenShareurls[i] = await mergeAndUpload(`${sessionId}_${participants[i]?.id}-screen`)
     
 
       if(!urls[i]){
@@ -276,13 +293,13 @@ router.post("/get_url", async (req, res) => {
                 userId: p.id,
               });
             }
-            if (screenShareurls[i]) {
-              recs.push({
-                url: screenShareurls[i],
-                type: "individual-screen",
-                userId: p.id,
-              });
-            }
+            // if (screenShareurls[i]) {
+            //   recs.push({
+            //     url: screenShareurls[i],
+            //     type: "individual-screen",
+            //     userId: p.id,
+            //   });
+            // }
             return recs;
           }),
         },

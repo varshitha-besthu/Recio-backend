@@ -239,6 +239,15 @@ app.post("/fetch_users_by_roomId", async(req, res) => {
     
 })
 
+app.post("/fetch_roomId_by_roomName", async(req, res) => {
+    const {roomName} = req.body;
+    const response = await prisma.room.findFirst({
+      where: {name: roomName},select:{id: true}
+    })
+
+    res.json({"roomId": response?.id});
+})
+
 app.post("/fetch_url_by_userId_roomId_type", async(req, res) => {
     const {roomId, userId, type} = req.body;
 
