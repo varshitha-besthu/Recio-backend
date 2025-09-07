@@ -137,15 +137,17 @@ app.post('/getToken', async (req, res) => {
         room = await prisma.room.update({
           where: { id: room.id },
           data: {
-            participants: { connect: { id: participantId } },
+            participants: { connect: { id : participantId } },
           },
           include: { participants: true },
         });
       }
     }
+
+    
     console.log("participant:", participantName);
     console.log("room:", room);
-    const token = await createToken({ roomName, participantId, role });
+    const token = await createToken({ roomName, participantId: participantName , role });
     res.json({ token, room, role });
 
   } catch (error) {
