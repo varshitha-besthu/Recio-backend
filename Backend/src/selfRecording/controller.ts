@@ -10,7 +10,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { spawn } from 'child_process';
 import { PrismaClient } from '../../src/generated/prisma/client.js';
-import { url } from 'inspector';
+
 
 const app = express();
 const upload = multer({ dest: "uploads/" });
@@ -174,13 +174,19 @@ export async function mergeAndUploadSideBySide(
 
   const width = 320;  
   const height = 240; 
+
   const scaleParts = localFiles.map((_, i) => `[${i}:v]scale=${width}:${height}[v${i}]`);
   const layout = localFiles.map((_, i) => `${i * width}_0`).join("|");
-  const xstackFilter = `${scaleParts.join(";")};${localFiles.map((_, i) => `[v${i}]`).join("")}xstack=inputs=${localFiles.length}:layout=${layout}[v]`;
 
+  const videoStack = `${scaleParts.join(";")};${localFiles.map((_, i) => `[v${i}]`).join("")}xstack=inputs=${localFiles.length}:layout=${layout}[v]`;
+
+  const audioMix = `${localFiles.map((_, i) => `[${i}:a]`).join("")}amix=inputs=${localFiles.length}:normalize=0[a]`;
+
+  const filterComplex = `${videoStack};${audioMix}`;
   ffmpegArgs.push(
-    "-filter_complex", xstackFilter,
+    "-filter_complex", filterComplex,
     "-map", "[v]",
+    "-map", "[a]",
     "-c:v", "libvpx-vp9",
     "-c:a", "libopus",
     outputPath
@@ -217,7 +223,6 @@ export async function mergeAndUploadSideBySide(
 
 router.post("/get_merged_url", async(req, res) => {
     const {session_Id, urlF} = req.body;
-
     const merged_url = await mergeAndUploadSideBySide(urlF);
 
     try {
@@ -264,13 +269,13 @@ router.post("/get_url", async (req, res) => {
       return;
     }
    
-    console.log("room Data from get_url", room.participants);
+    console.log("room participants Data from get_url", room.participants);
     const participants = room.participants;
 
     for (let i = 0; i < participants.length; i++) {
-      console.log("participant id in the loop of participants", participants[i]?.id);
-      urls[i] = await mergeAndUpload(`${sessionId}_${participants[i]?.id}_`);
-      // screenShareurls[i] = await mergeAndUpload(`${sessionId}_${participants[i]?.id}-screen`)
+      console.log("participant id in the loop of participants", participants[i]?.email);
+      urls[i] = await mergeAndUpload(`${sessionId}_${participants[i]?.email}_`);
+      screenShareurls[i] = await mergeAndUpload(`${sessionId}_${participants[i]?.email}-screen`)
     
 
       if(!urls[i]){
@@ -293,13 +298,13 @@ router.post("/get_url", async (req, res) => {
                 userId: p.id,
               });
             }
-            // if (screenShareurls[i]) {
-            //   recs.push({
-            //     url: screenShareurls[i],
-            //     type: "individual-screen",
-            //     userId: p.id,
-            //   });
-            // }
+            if (screenShareurls[i]) {
+              recs.push({
+                url: screenShareurls[i],
+                type: "individual-screen",
+                userId: p.id,
+              });
+            }
             return recs;
           }),
         },
