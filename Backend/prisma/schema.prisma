@@ -22,7 +22,7 @@ model User {
 
 model Room {
   id           String   @id @default(uuid())
-  name         String   @unique
+  name         String   
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -31,6 +31,7 @@ model Room {
   createdBy    User     @relation("UserRooms", fields: [createdById], references: [id])
   participants User[]   @relation("RoomParticipants")
   recordings   Recording[]
+  @@unique([name, createdById])
 }
 
 model Recording {

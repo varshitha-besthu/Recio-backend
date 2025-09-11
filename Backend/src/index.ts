@@ -122,7 +122,8 @@ app.post('/getToken', async (req, res) => {
 
     } else {
       console.log("role = joiner");
-      room = await prisma.room.findUnique({
+
+      room = await prisma.room.findFirst({
         where: { name: roomName },
         include: { participants: true },
       });
@@ -132,6 +133,7 @@ app.post('/getToken', async (req, res) => {
       }
 
       const alreadyJoined = room.participants.some(p => p.id === participantId);
+
       if (!alreadyJoined) {
         room = await prisma.room.update({
           where: { id: room.id },
