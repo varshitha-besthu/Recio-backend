@@ -70,7 +70,9 @@ app.get("/auth/google/callback", async (req, res) => {
       },
     });
   }
-  res.redirect(`${Frontend_url}/auth/callback/?token=${id_token}`);
+
+  console.log("email", userEmail)
+  res.redirect(`${Frontend_url}/auth/callback/?token=${id_token}&participantName=${userEmail}`);
   
 });
 
