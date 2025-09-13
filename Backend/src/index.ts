@@ -8,6 +8,7 @@ import { AccessToken, WebhookReceiver } from "livekit-server-sdk";
 import { router } from "./selfRecording/controller.js";
 import axios from "axios";
 import type { JwtPayload } from "@supabase/supabase-js";
+import nodemailer from "nodemailer";
 
 const app = express();
 const prisma = new PrismaClient();
@@ -16,7 +17,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cors());
 
-const JWT_SECRET = process.env.JWT_SECRET ;
+const JWT_SECRET = process.env.JWT_SECRET || "" ;
 const API_KEY = process.env.LIVEKIT_API_KEY ;
 const API_SECRET = process.env.LIVEKIT_API_SECRET;
 const Backend_url = process.env.BACKEND_URL;
@@ -76,8 +77,6 @@ app.get("/auth/google/callback", async (req, res) => {
   
 });
 
-
-
 app.post("/signup", async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -133,6 +132,78 @@ app.post("/signin", async (req, res) => {
   }
 });
 
+app.post('/forgot-password', async (req, res) => {
+    try {
+        const { email } = req.body;
+
+        const user = await prisma.user.findUnique({
+          where: {
+            email: email
+          }
+        });
+
+        if (!user) {
+            return res.status(400).json({ message: "User with this email does not exist" });
+        }
+        const resetToken = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '15m' });
+
+        const transporter = nodemailer.createTransport({
+            secure: true,
+            service: 'gmail',
+            host: 'smtp.gmail.com',
+            port: 465,
+            auth: {
+                user: process.env.SMTP_USER,
+                pass: process.env.SMTP_PASS
+            }
+        });
+
+        const mailOptions = {
+            to: email,
+            subject: 'Password Reset',
+            html: `<p>You requested a password reset. Click <a href="${Frontend_url}/reset-password?token=${resetToken}">here</a> to reset your password. This link is valid for 15 minutes.</p>`
+        };
+
+        await transporter.sendMail(mailOptions);
+
+        res.json({ message: "Password reset link sent to email" });
+
+    } catch (e) {
+        console.error("Forgot Password Error:", e);
+        res.status(500).json({ message: "Internal Server Error" });
+    }
+});
+
+app.post('/reset-password', async (req, res) => {
+    try {
+        const {newPassword, token } = req.body;
+
+        const decoded = jwt.verify(token, JWT_SECRET) as JwtPayload;
+        const user = await prisma.user.findUnique({
+          where: {
+            id: decoded.id
+          } 
+        });
+
+        if (!user) {
+            return res.status(400).json({ message: "Invalid or expired token" });
+        }
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        console.log("hashedPassword", hashedPassword);
+        user.password = hashedPassword;
+        await prisma.user.update({
+          where: { id: decoded.id },
+          data: { password: hashedPassword },
+        });
+
+        res.json({ message: "Password reset successful" });
+
+    } catch (e) {
+        console.error("Reset Password Error:", e);
+        res.status(500).json({ message: "Invalid or expired token" });
+    }
+});
+
 const createToken = async ({roomName, participantId, role} : {roomName : string, participantId: string, role: "creator" | "guest"}) => {
  
   const at = new AccessToken(process.env.LIVEKIT_API_KEY, process.env.LIVEKIT_API_SECRET, {
@@ -143,6 +214,7 @@ const createToken = async ({roomName, participantId, role} : {roomName : string,
   at.addGrant({ roomJoin: true, room: roomName, canPublish: true, canSubscribe: true, canPublishData: role === "creator"});
   return await at.toJwt();
 };
+
 
 app.post('/getToken', async (req, res) => {
   try {
