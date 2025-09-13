@@ -6,6 +6,8 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { AccessToken, WebhookReceiver } from "livekit-server-sdk";
 import { router } from "./selfRecording/controller.js";
+import axios from "axios";
+import type { JwtPayload } from "@supabase/supabase-js";
 
 const app = express();
 const prisma = new PrismaClient();
@@ -17,13 +19,62 @@ app.use(cors());
 const JWT_SECRET = process.env.JWT_SECRET ;
 const API_KEY = process.env.LIVEKIT_API_KEY ;
 const API_SECRET = process.env.LIVEKIT_API_SECRET;
-
+const Backend_url = process.env.BACKEND_URL;
+const Frontend_url = process.env.FRONTEND_URL;
 
 app.use("/api", router);
 
-app.get('/', (req, res) => {
-  res.sendStatus(200)
-})
+
+app.get("/auth/google", (req, res) => {
+  const redirectUri = `${Backend_url}/auth/google/callback`; 
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  const scope = "openid email profile";
+  const responseType = "code";
+
+
+  const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=${responseType}&scope=${scope}`;
+  
+  res.redirect(googleAuthUrl);
+});
+
+app.get("/auth/google/callback", async (req, res) => {
+  const { code } = req.query;
+
+  const tokenRes = await axios.post("https://oauth2.googleapis.com/token", {
+    code,
+    client_id: process.env.GOOGLE_CLIENT_ID,
+    client_secret: process.env.GOOGLE_CLIENT_SECRET,
+    redirect_uri: `${Backend_url}/auth/google/callback`,
+    grant_type: "authorization_code",
+  });
+
+  const { id_token } = tokenRes.data;
+
+  const decoded = jwt.decode(id_token);
+
+  if (!decoded || typeof decoded === "string" || !("email" in decoded)) {
+    return res.status(400).send("Invalid token");
+  }
+
+  const userEmail = (decoded as JwtPayload).email as string;
+
+  let user = await prisma.user.findUnique({
+    where: { email: userEmail },
+  });
+
+  if (!user) {
+    user = await prisma.user.create({
+      data: {
+        email: userEmail,
+        password: "dummy", 
+      },
+    });
+  }
+  res.redirect(`${Frontend_url}/auth/callback/?token=${id_token}`);
+  
+});
+
+
 
 app.post("/signup", async (req, res) => {
   try {
@@ -93,7 +144,9 @@ const createToken = async ({roomName, participantId, role} : {roomName : string,
 
 app.post('/getToken', async (req, res) => {
   try {
-    const { roomName, participantName, role } = req.body;
+    const role= req.body.role;
+    const participantName = req.body.participantName;
+    let roomName;
     let room;
     let participantId;
 
@@ -108,9 +161,11 @@ app.post('/getToken', async (req, res) => {
     }
     participantId = participant.id;
 
+
     if (role === "creator") {
       console.log("role = creator");
-
+      roomName = req.body.roomName;
+      
       room = await prisma.room.create({
         data: {
           name: roomName,
@@ -120,11 +175,13 @@ app.post('/getToken', async (req, res) => {
         include: { createdBy: true, participants: true },
       });
 
-    } else {
+    }
+     else {
       console.log("role = joiner");
+      const roomId = req.body.roomId; 
 
       room = await prisma.room.findFirst({
-        where: { name: roomName },
+        where: { id: roomId },
         include: { participants: true },
       });
 
@@ -143,12 +200,12 @@ app.post('/getToken', async (req, res) => {
           include: { participants: true },
         });
       }
-    }
+      roomName = room.name
 
-    
+    }
     console.log("participant:", participantName);
     console.log("room:", room);
-    const token = await createToken({ roomName, participantId: participantName , role });
+    const token = await createToken({roomName , participantId: participantName , role });
     res.json({ token, room, role });
 
   } catch (error) {
@@ -240,15 +297,6 @@ app.post("/fetch_users_by_roomId", async(req, res) => {
     console.log("fetchedUsers", fetchedUsers[0]?.participants);
     res.json({"fetchedUsers": fetchedUsers[0]?.participants});
     
-})
-
-app.post("/fetch_roomId_by_roomName", async(req, res) => {
-    const {roomName} = req.body;
-    const response = await prisma.room.findFirst({
-      where: {name: roomName},select:{id: true}
-    })
-
-    res.json({"roomId": response?.id});
 })
 
 app.post("/fetch_url_by_userId_roomId_type", async(req, res) => {
